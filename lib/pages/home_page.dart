@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'game_page.dart';
 import 'kana/kana_page.dart';
 import 'kanji/kanji_page.dart';
-import 'practice_page.dart';
-import 'story_page.dart';
+import 'practice/practice_page.dart';
+import 'story/story_detail_page.dart';
+import 'story/story_list_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -163,41 +164,41 @@ class HomePage extends StatelessWidget {
                 ),
               ),
 
-              //STORY
-              GestureDetector(
-                onTap:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => StoryPage()),
-                    ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 10.0),
-                  child: Container(
-                    width: double.infinity,
-                    height: 98,
-                    decoration: BoxDecoration(
-                      color: Color(0xFFBC002D),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'STORY',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 42,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              // STORY
+GestureDetector(
+  onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => StoryListPage()),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 10.0),
+    child: Container(
+      width: double.infinity,
+      height: 98,
+      decoration: BoxDecoration(
+        color: Color(0xFFBC002D),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'STORY',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 42,
               ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
+
 
               //GAME
               GestureDetector(

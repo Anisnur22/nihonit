@@ -14,11 +14,14 @@ class LessonQuizPage extends StatefulWidget {
 
 class _LessonQuizPageState extends State<LessonQuizPage> {
   List<Map<String, dynamic>> kanjiList = [];
-  int stage = 0; // 0 to 7 per pair
-  int currentPair = 0;
   final FlutterTts flutterTts = FlutterTts();
   List<String> disabledOptions = [];
-  List<Offset?> points = []; // Store the drawing points here
+  List<Offset?> points = [];
+  final GlobalKey _paintKey = GlobalKey();
+  int currentIndex = 0;
+  int subStage = 0;
+
+  final List<String> subStages = ['warmup', 'drawing', 'quiz_p', 'quiz_m'];
 
   @override
   void initState() {
@@ -42,8 +45,7 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
         .get();
 
     final loadedKanji = snapshot.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return data;
+      return doc.data() as Map<String, dynamic>;
     }).toList();
 
     setState(() {
@@ -53,8 +55,13 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
 
   void nextStage() {
     setState(() {
-      disabledOptions = []; // reset disabled options for next stage
-      stage++;
+      disabledOptions = [];
+      points.clear();
+      subStage++;
+      if (subStage >= subStages.length) {
+        subStage = 0;
+        currentIndex++;
+      }
     });
   }
 
@@ -64,87 +71,43 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (kanjiList.length < currentPair + 2) {
+    if (kanjiList.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (currentIndex >= kanjiList.length) {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFFE1D5B9),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, size: 40, color: Colors.black),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: () => Navigator.pop(context),
           ),
           elevation: 0,
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Not enough kanji to start quiz.'),
-              Text('Loaded ${kanjiList.length} kanji for lesson ${widget.lessonId}')
-            ],
-          ),
-        ),
+        body: const Center(child: Text("🎉 Quiz Finished!")),
       );
     }
 
-    final kanji1 = kanjiList[currentPair];
-    final kanji2 = kanjiList[currentPair + 1];
-    final kanji3 = kanjiList[currentPair + 2];
-    final kanji4 = kanjiList[currentPair + 3];
+    final kanji = kanjiList[currentIndex];
+    final stageType = subStages[subStage];
 
     Widget content;
-    switch (stage) {
-      case 0:
-        content = buildWarmup(kanji1);
+    switch (stageType) {
+      case 'warmup':
+        content = buildWarmup(kanji);
         break;
-      case 1:
-        content = buildWarmup(kanji2);
+      case 'drawing':
+        content = buildDrawing(kanji);
         break;
-      case 2:
-        content = buildDrawing(kanji1);
+      case 'quiz_p':
+        content = buildMCQ(kanji, 'pronunciation');
         break;
-      case 3:
-        content = buildDrawing(kanji2);
-        break;
-      case 4:
-        content = buildMCQ(kanji1, 'pronunciation');
-        break;
-      case 5:
-        content = buildMCQ(kanji1, 'meaning');
-        break;
-      case 6:
-        content = buildMCQ(kanji2, 'pronunciation');
-        break;
-      case 7:
-        content = buildMCQ(kanji2, 'meaning');
-        break;
-      case 8:
-        content = buildWarmup(kanji3); // Handle pair 3 warmup
-        break;
-      case 9:
-        content = buildWarmup(kanji4); // Handle pair 4 warmup
-        break;
-      case 10:
-        content = buildDrawing(kanji3); // Handle pair 3 drawing
-        break;
-      case 11:
-        content = buildDrawing(kanji4); // Handle pair 4 drawing
-        break;
-      case 12:
-        content = buildMCQ(kanji3, 'pronunciation'); // Handle pair 3 MCQ
-        break;
-      case 13:
-        content = buildMCQ(kanji3, 'meaning'); // Handle pair 3 MCQ
-        break;
-      case 14:
-        content = buildMCQ(kanji4, 'pronunciation'); // Handle pair 4 MCQ
-        break;
-      case 15:
-        content = buildMCQ(kanji4, 'meaning'); // Handle pair 4 MCQ
+      case 'quiz_m':
+        content = buildMCQ(kanji, 'meaning');
         break;
       default:
-        content = const Center(child: Text("Quiz Finished!"));
+        content = const Center(child: Text("Unexpected stage"));
     }
 
     return Scaffold(
@@ -152,9 +115,7 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
         backgroundColor: const Color(0xFFE1D5B9),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 40, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
       ),
@@ -186,33 +147,70 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
   }
 
   Widget buildDrawing(Map<String, dynamic> kanji) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text("Draw the character: ${kanji['character']}", style: const TextStyle(fontSize: 20)),
-        const SizedBox(height: 20),
-        Expanded(
+  final int requiredStrokes = kanji['strokeOrder'] ?? 1;
+  final int completedStrokes = points.where((p) => p == null).length;
+  final bool isReady = completedStrokes >= requiredStrokes;
+
+  return Column(
+    children: [
+      Text(
+        "Draw the character: ${kanji['character']}",
+        style: const TextStyle(fontSize: 20),
+      ),
+      const SizedBox(height: 10),
+      Text("Strokes: $completedStrokes / $requiredStrokes"),
+      const SizedBox(height: 20),
+      Center(
+        child: SizedBox(
+          width: 300,
+          height: 300,
           child: GestureDetector(
             onPanUpdate: (details) {
+              final box = _paintKey.currentContext?.findRenderObject() as RenderBox?;
+              if (box != null) {
+                final localPosition = box.globalToLocal(details.globalPosition);
+                setState(() {
+                  points.add(localPosition);
+                });
+              }
+            },
+            onPanEnd: (_) {
               setState(() {
-                points.add(details.localPosition); // Add points when user draws
+                points.add(null); // End of a stroke
               });
             },
-            onPanEnd: (details) {
-              setState(() {
-                points.add(null); // Add null to indicate the end of a line
-              });
-            },
-            child: CustomPaint(
-              size: Size(double.infinity, 300),
-              painter: DrawingPainter(points, kanji['character']), // Pass the character to display
+            child: Stack(
+              children: [
+                if (kanji['strokeOrderUrl'] != null)
+                  Positioned.fill(
+                    child: Image.network(
+                      kanji['strokeOrderUrl'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(child: Text('Image not available')),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    key: _paintKey,
+                    painter: DrawingPainter(points),
+                    child: Container(),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        ElevatedButton(onPressed: nextStage, child: const Text("Submit"))
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 20),
+      ElevatedButton(
+        onPressed: isReady ? nextStage : null,
+        child: const Text("Submit"),
+      ),
+    ],
+  );
+}
+
 
   Widget buildMCQ(Map<String, dynamic> kanji, String field) {
     List<String> options = kanjiList.map((k) => k[field] as String).toSet().toList();
@@ -256,11 +254,10 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
 }
 
 class DrawingPainter extends CustomPainter {
-  final List<Offset?> points; // List of points being drawn
-  final String character;
+  final List<Offset?> points;
   final Paint paintDrawing;
 
-  DrawingPainter(this.points, this.character)
+  DrawingPainter(this.points)
       : paintDrawing = Paint()
           ..color = Colors.black
           ..strokeCap = StrokeCap.round
@@ -268,37 +265,19 @@ class DrawingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw the gray square for canvas background
-    final paintBackground = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(Offset(50, 50) & Size(size.width - 100, size.height - 100), paintBackground);
-
-    // Draw the character in the center
-    final textStyle = TextStyle(color: Colors.black, fontSize: 50);
-    final textPainter = TextPainter(
-      text: TextSpan(text: character, style: textStyle),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset((size.width - textPainter.width) / 2, (size.height - textPainter.height) / 2));
-
-    // Draw the drawing points
     for (int i = 0; i < points.length - 1; i++) {
       final p1 = points[i];
       final p2 = points[i + 1];
       if (p1 != null && p2 != null) {
-        canvas.drawLine(p1, p2, paintDrawing); // Draw line between points
+        canvas.drawLine(p1, p2, paintDrawing);
       }
     }
   }
 
+  
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    if (oldDelegate is DrawingPainter) {
-      return oldDelegate.points != points; // Repaint if points list has changed
-    }
-    return false;
+    return true;
   }
 }

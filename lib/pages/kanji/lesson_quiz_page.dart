@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:confetti/confetti.dart';
 
 class LessonQuizPage extends StatefulWidget {
   final String level;
@@ -15,19 +16,28 @@ class LessonQuizPage extends StatefulWidget {
 class _LessonQuizPageState extends State<LessonQuizPage> {
   List<Map<String, dynamic>> kanjiList = [];
   final FlutterTts flutterTts = FlutterTts();
+  final GlobalKey _paintKey = GlobalKey();
   List<String> disabledOptions = [];
   List<Offset?> points = [];
-  final GlobalKey _paintKey = GlobalKey();
+
   int currentIndex = 0;
   int subStage = 0;
 
   final List<String> subStages = ['warmup', 'drawing', 'quiz_p', 'quiz_m'];
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
     initTTS();
     loadKanji();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
   }
 
   void initTTS() async {
@@ -76,16 +86,57 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
     }
 
     if (currentIndex >= kanjiList.length) {
+      _confettiController.play(); // 🎉 Trigger confetti
+
       return Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFE1D5B9),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, size: 40, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          elevation: 0,
+        backgroundColor: const Color(0xFFFFF8E1),
+        body: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [Colors.red, Colors.green, Colors.blue, Colors.orange, Colors.purple],
+                emissionFrequency: 0.05,
+                numberOfParticles: 30,
+                gravity: 0.3,
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Quiz Complete!",
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "You’ve completed this lesson!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    label: const Text("Back to Lessons"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFBC002D),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ],
         ),
-        body: const Center(child: Text("🎉 Quiz Finished!")),
       );
     }
 
@@ -147,70 +198,69 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
   }
 
   Widget buildDrawing(Map<String, dynamic> kanji) {
-  final int requiredStrokes = kanji['strokeOrder'] ?? 1;
-  final int completedStrokes = points.where((p) => p == null).length;
-  final bool isReady = completedStrokes >= requiredStrokes;
+    final int requiredStrokes = kanji['strokeOrder'] ?? 1;
+    final int completedStrokes = points.where((p) => p == null).length;
+    final bool isReady = completedStrokes >= requiredStrokes;
 
-  return Column(
-    children: [
-      Text(
-        "Draw the character: ${kanji['character']}",
-        style: const TextStyle(fontSize: 20),
-      ),
-      const SizedBox(height: 10),
-      Text("Strokes: $completedStrokes / $requiredStrokes"),
-      const SizedBox(height: 20),
-      Center(
-        child: SizedBox(
-          width: 300,
-          height: 300,
-          child: GestureDetector(
-            onPanUpdate: (details) {
-              final box = _paintKey.currentContext?.findRenderObject() as RenderBox?;
-              if (box != null) {
-                final localPosition = box.globalToLocal(details.globalPosition);
+    return Column(
+      children: [
+        Text(
+          "Draw the character: ${kanji['character']}",
+          style: const TextStyle(fontSize: 20),
+        ),
+        const SizedBox(height: 10),
+        Text("Strokes: $completedStrokes / $requiredStrokes"),
+        const SizedBox(height: 20),
+        Center(
+          child: SizedBox(
+            width: 300,
+            height: 300,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                final box = _paintKey.currentContext?.findRenderObject() as RenderBox?;
+                if (box != null) {
+                  final localPosition = box.globalToLocal(details.globalPosition);
+                  setState(() {
+                    points.add(localPosition);
+                  });
+                }
+              },
+              onPanEnd: (_) {
                 setState(() {
-                  points.add(localPosition);
+                  points.add(null); // End of a stroke
                 });
-              }
-            },
-            onPanEnd: (_) {
-              setState(() {
-                points.add(null); // End of a stroke
-              });
-            },
-            child: Stack(
-              children: [
-                if (kanji['strokeOrderUrl'] != null)
+              },
+              child: Stack(
+                children: [
+                  if (kanji['strokeOrderUrl'] != null)
+                    Positioned.fill(
+                      child: Image.network(
+                        kanji['strokeOrderUrl'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Center(child: Text('Image not available')),
+                      ),
+                    ),
                   Positioned.fill(
-                    child: Image.network(
-                      kanji['strokeOrderUrl'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(child: Text('Image not available')),
+                    child: CustomPaint(
+                      key: _paintKey,
+                      painter: DrawingPainter(points),
+                      child: Container(),
                     ),
                   ),
-                Positioned.fill(
-                  child: CustomPaint(
-                    key: _paintKey,
-                    painter: DrawingPainter(points),
-                    child: Container(),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 20),
-      ElevatedButton(
-        onPressed: isReady ? nextStage : null,
-        child: const Text("Submit"),
-      ),
-    ],
-  );
-}
-
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: isReady ? nextStage : null,
+          child: const Text("Submit"),
+        ),
+      ],
+    );
+  }
 
   Widget buildMCQ(Map<String, dynamic> kanji, String field) {
     List<String> options = kanjiList.map((k) => k[field] as String).toSet().toList();
@@ -274,10 +324,6 @@ class DrawingPainter extends CustomPainter {
     }
   }
 
-  
-
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

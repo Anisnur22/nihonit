@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'add_kana_page.dart';
+import 'add_kanji_page.dart';
 import 'browse_cards_page.dart';
-import 'add_card_page.dart';
+import 'card_form_page.dart';
 
 class DeckDetailPage extends StatefulWidget {
   final String deckId;
@@ -22,23 +24,19 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
   bool _showBack = false;
 
   void _nextCard(int totalCards) {
-  setState(() {
-    if (_currentIndex >= totalCards - 1) {
-      _currentIndex = 0;
-    } else {
-      _currentIndex++;
-    }
-    _showBack = false;
-  });
-}
+    setState(() {
+      _currentIndex = (_currentIndex + 1) % totalCards;
+      _showBack = false;
+    });
+  }
 
-
-  void _onSRSPressed(String quality) async {
+  Future<void> _onSRSPressed(String quality) async {
     final snapshot = await FirebaseFirestore.instance
         .collection('practiceDecks')
         .doc(widget.deckId)
         .collection('cards')
-        .orderBy('created_at')
+        .where('next_review', isLessThanOrEqualTo: Timestamp.now())
+        .orderBy('next_review')
         .get();
 
     final docs = snapshot.docs;
@@ -51,32 +49,37 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
     double ease = (card['ease_factor'] ?? 2.5).toDouble();
     int interval = (card['interval'] ?? 1).toInt();
     int reps = (card['repetition'] ?? 0).toInt();
+    DateTime nextReview;
 
     switch (quality) {
       case "Again":
         reps = 0;
-        interval = 1;
-        ease = ease - 0.2;
+        interval = 0;
+        ease -= 0.2;
+        nextReview = DateTime.now().add(const Duration(minutes: 1));
         break;
       case "Hard":
-        interval = (interval * 1.2).round();
-        ease = ease - 0.15;
+        interval = 3;
+        ease -= 0.15;
         reps++;
+        nextReview = DateTime.now().add(const Duration(minutes: 3));
         break;
       case "Good":
-        interval = (interval * ease).round();
+        interval = 10;
         reps++;
+        nextReview = DateTime.now().add(const Duration(minutes: 10));
         break;
       case "Easy":
-        interval = (interval * (ease + 0.15)).round();
-        ease = ease + 0.1;
+        interval = 1440;
+        ease += 0.1;
         reps++;
+        nextReview = DateTime.now().add(const Duration(days: 1));
         break;
+      default:
+        return;
     }
 
     if (ease < 1.3) ease = 1.3;
-
-    final nextReview = DateTime.now().add(Duration(days: interval));
 
     await doc.reference.update({
       'ease_factor': ease,
@@ -108,11 +111,13 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
   Widget build(BuildContext context) {
     const appBarColor = Color(0xFFE1D5B9);
 
+    final now = Timestamp.now();
     final cardsRef = FirebaseFirestore.instance
         .collection('practiceDecks')
         .doc(widget.deckId)
         .collection('cards')
-        .orderBy('created_at');
+        .where('next_review', isLessThanOrEqualTo: now)
+        .orderBy('next_review');
 
     return Scaffold(
       appBar: AppBar(
@@ -124,55 +129,75 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
         elevation: 0,
         toolbarHeight: 80,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Theme(
-              data: Theme.of(context).copyWith(
-                popupMenuTheme: const PopupMenuThemeData(
-                  color: appBarColor,
-                  textStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-                ),
-              ),
-              child: PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'card') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddCardPage(deckId: widget.deckId),
-                      ),
-                    );
-                  }
-                },
-                offset: const Offset(0, 40),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'card', child: Text('Add Card')),
-                ],
-                child: const Text(
-                  'Add',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                // TODO: implement edit deck
-              },
-              child: const Text('Edit', style: TextStyle(fontSize: 18, color: Colors.black)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BrowseCardsPage(deckId: widget.deckId),
-                  ),
-                );
-              },
-              child: const Text('Browse', style: TextStyle(fontSize: 18, color: Colors.black)),
-            ),
-          ],
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
+    Theme(
+      data: Theme.of(context).copyWith(
+        popupMenuTheme: const PopupMenuThemeData(
+          color: appBarColor,
+          textStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
+      ),
+      child: PopupMenuButton<String>(
+  onSelected: (value) {
+    if (value == 'add_card') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CardFormPage(deckId: widget.deckId),
+        ),
+      );
+    } else if (value == 'add_kana') {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddKanaPage(deckId: widget.deckId),
+      ),
+    );
+  } else if (value == 'add_kanji') {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddKanjiPage(deckId: widget.deckId),
+    ),
+  );
+}
+  },
+  offset: const Offset(0, 40),
+  itemBuilder: (context) => const [
+    PopupMenuItem(value: 'add_card', child: Text('Add Card')),
+    PopupMenuItem(value: 'add_kana', child: Text('Add Kana')),
+    PopupMenuItem(value: 'add_kanji', child: Text('Add Kanji')),
+  ],
+  child: const Text(
+    'Add',
+    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+  ),
+),
+
+    ),
+    TextButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BrowseCardsPage(deckId: widget.deckId),
+          ),
+        );
+      },
+      child: const Text('Browse', style: TextStyle(fontSize: 18, color: Colors.black)),
+    ),
+  ],
+),
+
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: () {
+              setState(() {});
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: cardsRef.snapshots(),
@@ -186,20 +211,7 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
 
           final docs = snapshot.data!.docs;
 
-          if (docs.isEmpty) {
-  return const Center(
-    child: Padding(
-      padding: EdgeInsets.only(top: 40),
-      child: Text(
-        'You\'re done for now!',
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-      ),
-    ),
-  );
-}
-
-
-          if (_currentIndex >= docs.length) {
+          if (docs.isEmpty || _currentIndex >= docs.length) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.only(top: 40),
@@ -211,7 +223,8 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
             );
           }
 
-          final currentCard = docs[_currentIndex].data() as Map<String, dynamic>;
+          final currentDoc = docs[_currentIndex];
+          final currentCard = currentDoc.data() as Map<String, dynamic>;
           final front = currentCard['front'] ?? '';
           final back = currentCard['back'] ?? '';
 
@@ -222,6 +235,19 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
               });
             },
             onDoubleTap: () => _nextCard(docs.length),
+            onLongPress: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CardFormPage(
+                    deckId: widget.deckId,
+                    cardId: currentDoc.id,
+                    initialFront: front,
+                    initialBack: back,
+                  ),
+                ),
+              );
+            },
             child: Stack(
               children: [
                 Center(
@@ -285,6 +311,29 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+
+                Positioned(
+                  bottom: 40,
+                  right: 20,
+                  child: FloatingActionButton(
+                    mini: true,
+                    backgroundColor: Color(0xFFE1D5B9),
+                    child: const Icon(Icons.edit, color: Colors.black),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CardFormPage(
+                            deckId: widget.deckId,
+                            cardId: currentDoc.id,
+                            initialFront: front,
+                            initialBack: back,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

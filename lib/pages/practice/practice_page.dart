@@ -34,9 +34,18 @@ class _PracticePageState extends State<PracticePage> {
   }
 
   Future<void> deleteSelectedDecks() async {
-    for (final id in selectedDeckIds) {
-      await FirebaseFirestore.instance.collection('practiceDecks').doc(id).delete();
+    for (final deckId in selectedDeckIds) {
+      final deckRef = FirebaseFirestore.instance.collection('practiceDecks').doc(deckId);
+      final cardsRef = deckRef.collection('cards');
+
+      final cardSnapshots = await cardsRef.get();
+      for (final card in cardSnapshots.docs) {
+        await card.reference.delete();
+      }
+
+      await deckRef.delete();
     }
+
     clearSelection();
   }
 
@@ -57,36 +66,44 @@ class _PracticePageState extends State<PracticePage> {
             Navigator.pop(context);
           },
         ),
-        actions: selectionMode
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.black),
-                  onPressed: () async {
-                    final confirm = await showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text("Confirm Delete"),
-                        content: const Text("Delete selected decks?"),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Delete"),
-                          ),
-                        ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.black),
+            onPressed: () async {
+              if (!selectionMode) {
+                setState(() {
+                  selectionMode = true;
+                });
+              } else if (selectedDeckIds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("No decks selected.")),
+                );
+              } else {
+                final confirm = await showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("Confirm Delete"),
+                    content: const Text("Delete selected decks?"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel"),
                       ),
-                    );
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Delete"),
+                      ),
+                    ],
+                  ),
+                );
 
-                    if (confirm == true) {
-                      await deleteSelectedDecks();
-                    }
-                  },
-                )
-              ]
-            : null,
+                if (confirm == true) {
+                  await deleteSelectedDecks();
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -124,7 +141,6 @@ class _PracticePageState extends State<PracticePage> {
                     children: docs.map((doc) {
                       String deckId = doc.id;
                       String deckName = doc['name'];
-
                       final isSelected = selectedDeckIds.contains(deckId);
 
                       return GestureDetector(

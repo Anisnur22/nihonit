@@ -84,7 +84,7 @@ class _StoryPageState extends State<StoryPage> {
                             onPressed: () async {
                               await flutterTts.setLanguage("ja-JP");
                               await flutterTts.setPitch(1.0);
-                              await flutterTts.setSpeechRate(0.5);
+                              await flutterTts.setSpeechRate(0.2);
                               await flutterTts.speak(textJp);
                             },
                           ),

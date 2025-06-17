@@ -41,6 +41,8 @@ dependencies:
   firebase_core: ^3.13.0
   firebase_auth: ^5.5.3
   cloud_firestore: ^5.6.7
+  image_picker: ^1.1.2
+  firebase_storage: ^12.4.5
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +71,8 @@ flutter:
   assets:
     - assets/images/
     - assets/sounds/
+    - assets/sounds/ding.mp3
+    - assets/sounds/correct.mp3
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

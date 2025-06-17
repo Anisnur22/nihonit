@@ -1,6 +1,6 @@
 import 'package:coolapp/pages/account/profile_page.dart';
 import 'package:flutter/material.dart';
-import 'game_page.dart';
+import 'game/game_page.dart';
 import 'kana/kana_page.dart';
 import 'kanji/kanji_page.dart';
 import 'practice/practice_page.dart';

@@ -145,31 +145,38 @@ class _AddKanaPageState extends State<AddKanaPage> {
         centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.only(bottom: 70),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Kana Type',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            DropdownButton<String>(
-              value: selectedType,
-              onChanged: (value) {
-                setState(() {
-                  selectedType = value!;
-                });
-              },
-              items: const [
-                DropdownMenuItem(value: 'hiragana', child: Text('Hiragana')),
-                DropdownMenuItem(value: 'katakana', child: Text('Katakana')),
-              ],
-            ),
-            const SizedBox(height: 10),
-            kanaTable(selectedType),
-          ],
-        ),
+  padding: const EdgeInsets.only(bottom: 70),
+  child: ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      const Text(
+        'Note: After adding a card, tap the refresh icon to see it.',
+        style: TextStyle(fontSize: 14, color: Colors.grey),
+        textAlign: TextAlign.center,
       ),
+      const SizedBox(height: 20),
+      const Text(
+        'Kana Type',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      DropdownButton<String>(
+        value: selectedType,
+        onChanged: (value) {
+          setState(() {
+            selectedType = value!;
+          });
+        },
+        items: const [
+          DropdownMenuItem(value: 'hiragana', child: Text('Hiragana')),
+          DropdownMenuItem(value: 'katakana', child: Text('Katakana')),
+        ],
+      ),
+      const SizedBox(height: 10),
+      kanaTable(selectedType),
+    ],
+  ),
+),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: selectedKana.isEmpty ? null : addSelectedToDeck,
         label: const Text('Add to Deck'),

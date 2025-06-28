@@ -22,15 +22,20 @@ class DeckDetailPage extends StatefulWidget {
 class _DeckDetailPageState extends State<DeckDetailPage> {
   int _currentIndex = 0;
   bool _showBack = false;
+  bool _srsUpdating = false;
 
-  void _nextCard(int totalCards) {
-    setState(() {
-      _currentIndex = (_currentIndex + 1) % totalCards;
-      _showBack = false;
-    });
-  }
+  Map<String, String> intervalLabels = {
+    "Again": "1 min",
+    "Hard": "3 min",
+    "Good": "10 min",
+    "Easy": "1 day",
+  };
 
   Future<void> _onSRSPressed(String quality) async {
+    setState(() {
+      _srsUpdating = true;
+    });
+
     final snapshot = await FirebaseFirestore.instance
         .collection('practiceDecks')
         .doc(widget.deckId)
@@ -40,7 +45,6 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
         .get();
 
     final docs = snapshot.docs;
-
     if (_currentIndex >= docs.length) return;
 
     final doc = docs[_currentIndex];
@@ -89,12 +93,26 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
       'next_review': Timestamp.fromDate(nextReview),
     });
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _nextCard(docs.length);
+    final newSnapshot = await FirebaseFirestore.instance
+        .collection('practiceDecks')
+        .doc(widget.deckId)
+        .collection('cards')
+        .where('next_review', isLessThanOrEqualTo: Timestamp.now())
+        .orderBy('next_review')
+        .get();
+
+    setState(() {
+      _currentIndex = 0;
+      _showBack = false;
+      _srsUpdating = false;
     });
+
+    if (newSnapshot.docs.isEmpty) {
+      setState(() {}); // rebuild to show “You’re done!”
+    }
   }
 
-  Widget _srsButton(String label, Color color) {
+  Widget _srsButton(String label, Color color, String intervalText) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.white,
@@ -103,7 +121,14 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       ),
       onPressed: () => _onSRSPressed(label),
-      child: Text(label, style: const TextStyle(fontSize: 16)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(intervalText, style: const TextStyle(fontSize: 12)),
+        ],
+      ),
     );
   }
 
@@ -129,67 +154,65 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
         elevation: 0,
         toolbarHeight: 80,
         title: Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-    Theme(
-      data: Theme.of(context).copyWith(
-        popupMenuTheme: const PopupMenuThemeData(
-          color: appBarColor,
-          textStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Theme(
+              data: Theme.of(context).copyWith(
+                popupMenuTheme: const PopupMenuThemeData(
+                  color: appBarColor,
+                  textStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                ),
+              ),
+              child: PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'add_card') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CardFormPage(deckId: widget.deckId),
+                      ),
+                    );
+                  } else if (value == 'add_kana') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddKanaPage(deckId: widget.deckId),
+                      ),
+                    );
+                  } else if (value == 'add_kanji') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddKanjiPage(deckId: widget.deckId),
+                      ),
+                    );
+                  }
+                },
+                offset: const Offset(0, 40),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'add_card', child: Text('Add Card')),
+                  PopupMenuItem(value: 'add_kana', child: Text('Add Kana')),
+                  PopupMenuItem(value: 'add_kanji', child: Text('Add Kanji')),
+                ],
+                child: const Text(
+                  'Add',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BrowseCardsPage(deckId: widget.deckId),
+                  ),
+                );
+              },
+              child: const Text('Browse', style: TextStyle(fontSize: 18, color: Colors.black)),
+            ),
+          ],
         ),
-      ),
-      child: PopupMenuButton<String>(
-  onSelected: (value) {
-    if (value == 'add_card') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CardFormPage(deckId: widget.deckId),
-        ),
-      );
-    } else if (value == 'add_kana') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddKanaPage(deckId: widget.deckId),
-      ),
-    );
-  } else if (value == 'add_kanji') {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddKanjiPage(deckId: widget.deckId),
-    ),
-  );
-}
-  },
-  offset: const Offset(0, 40),
-  itemBuilder: (context) => const [
-    PopupMenuItem(value: 'add_card', child: Text('Add Card')),
-    PopupMenuItem(value: 'add_kana', child: Text('Add Kana')),
-    PopupMenuItem(value: 'add_kanji', child: Text('Add Kanji')),
-  ],
-  child: const Text(
-    'Add',
-    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-  ),
-),
-
-    ),
-    TextButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BrowseCardsPage(deckId: widget.deckId),
-          ),
-        );
-      },
-      child: const Text('Browse', style: TextStyle(fontSize: 18, color: Colors.black)),
-    ),
-  ],
-),
-
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.black),
@@ -212,14 +235,27 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
           final docs = snapshot.data!.docs;
 
           if (docs.isEmpty || _currentIndex >= docs.length) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.only(top: 40),
-                child: Text(
-                  'You\'re done!',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: const [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
+                  child: Text(
+                    'Note: Tap the refresh icon to check if any cards are due.',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'You\'re done!',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
             );
           }
 
@@ -230,11 +266,12 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
 
           return GestureDetector(
             onTap: () {
-              setState(() {
-                _showBack = !_showBack;
-              });
+              if (!_srsUpdating) {
+                setState(() {
+                  _showBack = !_showBack;
+                });
+              }
             },
-            onDoubleTap: () => _nextCard(docs.length),
             onLongPress: () {
               Navigator.push(
                 context,
@@ -259,7 +296,7 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
                         style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
-                      if (_showBack) ...[
+                      if (_showBack && !_srsUpdating) ...[
                         const SizedBox(height: 20),
                         const Divider(thickness: 2, indent: 40, endIndent: 40, color: Colors.grey),
                         const SizedBox(height: 20),
@@ -274,10 +311,10 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            _srsButton("Again", Colors.redAccent),
-                            _srsButton("Hard", Colors.orange),
-                            _srsButton("Good", Colors.green),
-                            _srsButton("Easy", Colors.blue),
+                            _srsButton("Again", Colors.redAccent, intervalLabels["Again"]!),
+                            _srsButton("Hard", Colors.orange, intervalLabels["Hard"]!),
+                            _srsButton("Good", Colors.green, intervalLabels["Good"]!),
+                            _srsButton("Easy", Colors.blue, intervalLabels["Easy"]!),
                           ],
                         ),
                       ],
@@ -313,13 +350,12 @@ class _DeckDetailPageState extends State<DeckDetailPage> {
                     ],
                   ),
                 ),
-
                 Positioned(
                   bottom: 40,
                   right: 20,
                   child: FloatingActionButton(
                     mini: true,
-                    backgroundColor: Color(0xFFE1D5B9),
+                    backgroundColor: const Color(0xFFE1D5B9),
                     child: const Icon(Icons.edit, color: Colors.black),
                     onPressed: () {
                       Navigator.push(

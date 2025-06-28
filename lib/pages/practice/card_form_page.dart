@@ -94,6 +94,14 @@ class _CardFormPageState extends State<CardFormPage> {
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: Text(
+          'Note: After adding a card, tap the refresh icon to see it.',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+      ),
       TextField(
         controller: _frontController,
         decoration: const InputDecoration(labelText: 'Front'),
@@ -130,6 +138,7 @@ class _CardFormPageState extends State<CardFormPage> {
     ],
   ),
 ),
+
 
     );
   }

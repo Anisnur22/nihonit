@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'radical_tracing_page.dart'; // Assuming this is where the stroke order drawing happens
+import 'radical_tracing_page.dart'; // Make sure this is your TracingPage
 
 class RadicalDetailPage extends StatefulWidget {
   final String radicalId; // ID of the radical (e.g., "⼀")
@@ -17,21 +17,17 @@ class RadicalDetailPage extends StatefulWidget {
 }
 
 class _RadicalDetailPageState extends State<RadicalDetailPage> {
-
-  // Adjust the query to get the correct radical data based on stroke type
   Future<Map<String, dynamic>?> fetchRadicalData(String radicalId) async {
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('radical') // Radical collection
-          .doc(widget.strokeType) // "1stroke" or "2stroke"
+          .collection('radical')
+          .doc(widget.strokeType)
           .get();
 
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
-
-        // Check if the radical field exists
         if (data.containsKey(radicalId)) {
-          return data[radicalId]; // Return the entire data of the radical (e.g., meaning, pronunciation, strokeorder)
+          return data[radicalId]; // Return radical data
         }
       }
       return null;
@@ -46,66 +42,80 @@ class _RadicalDetailPageState extends State<RadicalDetailPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFE1D5B9),
-        title: null, // Remove the title from the AppBar
-        leading: IconButton(  // Place the back button in the leading section
-          icon: const Icon(Icons.arrow_back, size: 40, color: Colors.black),  // Same size as RadicalGridPage
+        title: null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 40, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        elevation: 0,  // Optionally set elevation to 0 for a flat look
+        elevation: 0,
       ),
-      body: FutureBuilder<Map<String, dynamic>?>( 
+      body: FutureBuilder<Map<String, dynamic>?>(
         future: fetchRadicalData(widget.radicalId),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting)
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
 
-          if (!snapshot.hasData || snapshot.data == null)
+          if (!snapshot.hasData || snapshot.data == null) {
             return const Center(child: Text('No data found.'));
+          }
 
           final data = snapshot.data!;
-          final imageUrl = data['strokeorder'] ?? ''; // URL for stroke order image
-          final radical = widget.radicalId; // Radical character (e.g., "⼀")
-          final meaning = data['meaning'] ?? ''; // Meaning of the radical
-          final pronunciation = data['pronunciation'] ?? ''; // Pronunciation info
+          final imageUrl = data['strokeorder'] ?? '';
+          final radical = widget.radicalId;
+          final meaning = data['meaning'] ?? '';
+          final pronunciation = data['pronunciation'] ?? '';
+          final relatedKanji = data['relatedKanji'] ?? [];
 
           return Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // Radical character - Display at the top with large and bold text
+                // Radical character
                 Text(
-                  radical,  // Show the radical character (e.g., "⼀")
+                  radical,
                   style: const TextStyle(
-                    fontSize: 120,  // Big font size
-                    fontWeight: FontWeight.bold,  // Bold font weight
+                    fontSize: 120,
+                    fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                // Meaning (aligned left, smaller font size)
+
+                // Meaning
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Meaning: $meaning',
-                    style: TextStyle(fontSize: 24, color: Colors.grey[800]), // Smaller font size
-                    textAlign: TextAlign.left,
+                    style: TextStyle(fontSize: 24, color: Colors.grey[800]),
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Pronunciation (aligned left, smaller font size)
+
+                // Pronunciation
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Pronunciation: $pronunciation',
-                    style: TextStyle(fontSize: 24, color: Colors.grey[800]), // Smaller font size
-                    textAlign: TextAlign.left,
+                    style: TextStyle(fontSize: 24, color: Colors.grey[800]),
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Stroke Order Section
+
+                // Related Kanji
+                if (relatedKanji is List && relatedKanji.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Related Kanji: ${relatedKanji.join('、')}',
+                      style: TextStyle(fontSize: 24, color: Colors.grey[800]),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+
+                // Stroke Order Header
                 const Text(
                   'Stroke Order (Tap to Draw)',
                   style: TextStyle(
@@ -116,7 +126,8 @@ class _RadicalDetailPageState extends State<RadicalDetailPage> {
                 ),
                 const Divider(thickness: 1.5),
                 const SizedBox(height: 16),
-                // Image section (clickable)
+
+                // Stroke order image (clickable)
                 if (imageUrl.isNotEmpty)
                   Center(
                     child: GestureDetector(
@@ -127,7 +138,7 @@ class _RadicalDetailPageState extends State<RadicalDetailPage> {
                             builder: (context) => TracingPage(
                               radicalId: widget.radicalId,
                               strokeType: widget.strokeType,
-                              imageUrl: imageUrl, // Pass imageUrl to TracingPage
+                              imageUrl: imageUrl,
                             ),
                           ),
                         );
@@ -152,4 +163,3 @@ class _RadicalDetailPageState extends State<RadicalDetailPage> {
     );
   }
 }
-

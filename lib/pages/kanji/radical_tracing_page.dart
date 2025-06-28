@@ -2,15 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class TracingPage extends StatefulWidget {
-  final String radicalId; // ID of the radical (like '⼆', '⼇', etc.)
-  final String strokeType; // "1stroke" or "2stroke"
-  final String imageUrl; // Add imageUrl as a parameter
+  final String radicalId;
+  final String strokeType;
+  final String imageUrl;
 
   const TracingPage({
     Key? key,
     required this.radicalId,
     required this.strokeType,
-    required this.imageUrl, // Initialize imageUrl here
+    required this.imageUrl,
   }) : super(key: key);
 
   @override
@@ -29,19 +29,17 @@ class _TracingPageState extends State<TracingPage> {
     fetchStrokeOrderImage();
   }
 
-  // Fetch stroke order image URL for the selected radical
   Future<void> fetchStrokeOrderImage() async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('radical')
-          .doc(widget.strokeType) // "1stroke" or "2stroke"
+          .doc(widget.strokeType)
           .get();
 
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
         setState(() {
-          // Fetch the strokeorder image URL for the given radicalId
-          imageUrl = data[widget.radicalId]?['strokeorder'] ?? ''; 
+          imageUrl = data[widget.radicalId]?['strokeorder'] ?? '';
         });
       }
     } catch (e) {
@@ -52,6 +50,18 @@ class _TracingPageState extends State<TracingPage> {
   void clearDrawing() {
     setState(() {
       points.clear();
+    });
+  }
+
+  void _addPoint(Offset point) {
+    setState(() {
+      points = List.from(points)..add(point);
+    });
+  }
+
+  void _endStroke() {
+    setState(() {
+      points = List.from(points)..add(null);
     });
   }
 
@@ -66,20 +76,12 @@ class _TracingPageState extends State<TracingPage> {
           IconButton(
             icon: Icon(showImage ? Icons.image : Icons.image_not_supported),
             tooltip: showImage ? 'Hide Image' : 'Show Image',
-            onPressed: () {
-              setState(() {
-                showImage = !showImage;
-              });
-            },
+            onPressed: () => setState(() => showImage = !showImage),
           ),
           IconButton(
             icon: Icon(showGrid ? Icons.grid_off : Icons.grid_on),
             tooltip: showGrid ? 'Hide Grid' : 'Show Grid',
-            onPressed: () {
-              setState(() {
-                showGrid = !showGrid;
-              });
-            },
+            onPressed: () => setState(() => showGrid = !showGrid),
           ),
           IconButton(
             icon: const Icon(Icons.redo),
@@ -90,77 +92,44 @@ class _TracingPageState extends State<TracingPage> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final width = constraints.maxWidth;
+          final canvasSize = constraints.biggest.shortestSide * 0.95;
 
-          final imageWidth = width;
-          final imageHeight = width; // make it square for simplicity
-
-          return Stack(
-            children: [
-              if (showImage && imageUrl != null && imageUrl!.isNotEmpty)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  width: imageWidth,
-                  height: imageHeight,
-                  child: Opacity(
-                    opacity: 0.2,
-                    child: Image.network(
-                      imageUrl!,
-                      width: imageWidth,
-                      height: imageHeight,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(child: Text('Image not available'));
-                      },
+          return Center(
+            child: SizedBox(
+              width: canvasSize,
+              height: canvasSize,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (event) => _addPoint(event.localPosition),
+                onPointerMove: (event) => _addPoint(event.localPosition),
+                onPointerUp: (_) => _endStroke(),
+                child: Stack(
+                  children: [
+                    if (showImage && imageUrl != null && imageUrl!.isNotEmpty)
+                      Opacity(
+                        opacity: 0.2,
+                        child: Image.network(
+                          imageUrl!,
+                          width: canvasSize,
+                          height: canvasSize,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Center(child: Text('Image not available')),
+                        ),
+                      ),
+                    if (showGrid)
+                      CustomPaint(
+                        size: Size(canvasSize, canvasSize),
+                        painter: GridPainter(columns: 2, rows: 2),
+                      ),
+                    CustomPaint(
+                      size: Size(canvasSize, canvasSize),
+                      painter: DrawingPainter(points: points),
                     ),
-                  ),
-                ),
-              if (showGrid)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  width: imageWidth,
-                  height: imageHeight,
-                  child: CustomPaint(
-                    size: Size(imageWidth, imageHeight),
-                    painter: GridPainter(columns: 2, rows: 2),
-                  ),
-                ),
-              Positioned(
-                top: 0,
-                left: 0,
-                width: imageWidth,
-                height: imageHeight,
-                child: GestureDetector(
-                  onPanUpdate: (details) {
-                    RenderBox? box = context.findRenderObject() as RenderBox?;
-                    if (box != null) {
-                      Offset point = box.globalToLocal(details.globalPosition);
-
-                      // Restrict drawing inside image box
-                      if (point.dx >= 0 &&
-                          point.dx <= imageWidth &&
-                          point.dy >= 0 &&
-                          point.dy <= imageHeight) {
-                        setState(() {
-                          points = List.from(points)..add(point);
-                        });
-                      }
-                    }
-                  },
-                  onPanEnd: (details) {
-                    setState(() {
-                      points = List.from(points)..add(null);
-                    });
-                  },
-                  child: CustomPaint(
-                    size: Size(imageWidth, imageHeight),
-                    painter: DrawingPainter(points: points),
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           );
         },
       ),
@@ -183,16 +152,20 @@ class GridPainter extends CustomPainter {
     final cellWidth = size.width / columns;
     final cellHeight = size.height / rows;
 
-    // Draw vertical lines (columns - 1 lines)
     for (int i = 1; i < columns; i++) {
-      double x = cellWidth * i;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paintGrid);
+      canvas.drawLine(
+        Offset(cellWidth * i, 0),
+        Offset(cellWidth * i, size.height),
+        paintGrid,
+      );
     }
 
-    // Draw horizontal lines (rows - 1 lines)
     for (int j = 1; j < rows; j++) {
-      double y = cellHeight * j;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paintGrid);
+      canvas.drawLine(
+        Offset(0, cellHeight * j),
+        Offset(size.width, cellHeight * j),
+        paintGrid,
+      );
     }
   }
 

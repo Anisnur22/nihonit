@@ -140,19 +140,26 @@ class _AddKanjiPageState extends State<AddKanjiPage> {
         centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.only(bottom: 70),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Kanji List',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            kanjiTable(),
-          ],
-        ),
+  padding: const EdgeInsets.only(bottom: 70),
+  child: ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      const Text(
+        'Note: After adding a card, tap the refresh icon to see it.',
+        style: TextStyle(fontSize: 14, color: Colors.grey),
+        textAlign: TextAlign.center,
       ),
+      const SizedBox(height: 20),
+      const Text(
+        'Kanji List',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(height: 10),
+      kanjiTable(),
+    ],
+  ),
+),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: selectedKanjiIds.isEmpty ? null : addSelectedToDeck,
         label: const Text('Add to Deck'),

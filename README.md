@@ -1,16 +1,13 @@
-# coolapp
+# NihonIt — Japanese Learning App
 
-A new Flutter project.
+NihonIt is a multi-modal Japanese language learning application built with Flutter.
+It integrates kana, kanji, and reading practice into a single ecosystem, with interactive features and spaced repetition to make studying more engaging.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+-Kana & Kanji Practice — Learn hiragana, katakana, and kanji in one app.
+-Interactive Quiz Games — Raindrop-style kanji quiz.
+-Text-to-Speech (TTS) — Hear correct pronunciations instantly.
+-Spaced Repetition Deck — Practice with SRS-style reviews.
+-Tracing Mode — Learn kanji and radical stroke order step by step.
+-Cross-Platform — Deployed on Android + Web.

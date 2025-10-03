@@ -1,5 +1,7 @@
 # NihonIt — Japanese Learning App
 
+![Image Alt]([image_url](https://github.com/Anisnur22/nihonit/blob/7b58efccafce95aa25916b96c0197697ce57632f/IMAGE%20INTRO.png))
+
 NihonIt is a multi-modal Japanese language learning application built with Flutter.
 It integrates kana, kanji, and reading practice into a single ecosystem, with interactive features and spaced repetition to make studying more engaging.
 
